@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palinsesto — le mie serie TV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #12131a;
+    --surface: #1c1e29;
+    --surface-2: #262838;
+    --line: #33364a;
+    --text: #edeef2;
+    --muted: #8a8d9f;
+    --amber: #e8a33d;
+    --yellow: #d1c136;
+    --teal: #4fa98c;
+    --red: #d9634f;
+    --radius: 4px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,h3, .display{
+    font-family:'Big Shoulders Display',sans-serif;
+    font-weight:800;
+    letter-spacing:0.01em;
+    text-transform:none;
+  }
+
+  /* ---------- layout ---------- */
+  .app{ display:flex; min-height:100vh; }
+  nav.side{
+    width:220px;
+    flex-shrink:0;
+    background:var(--surface);
+    border-right:1px solid var(--line);
+    padding:28px 0;
+    display:flex;
+    flex-direction:column;
+  }
+  .brand{
+    padding:0 24px 24px 24px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:20px;
+  }
+  .brand .tally{
+    display:inline-block; width:10px; height:10px; border-radius:50%;
+    background:var(--red); margin-right:8px; box-shadow:0 0 8px var(--red);
+  }
+  .brand h1{ font-size:26px; margin:6px 0 0 0; line-height:1; }
+  .brand p{ margin:4px 0 0; color:var(--muted); font-size:12.5px; }
+
+  .navlink{
+    display:flex; align-items:center; gap:10px;
+    padding:12px 24px;
+    color:var(--muted);
+    cursor:pointer;
+    font-size:15px;
+    font-weight:500;
+    border-left:3px solid transparent;
+  }
+  .navlink:hover{ color:var(--text); }
+  .navlink.active{
+    color:var(--text);
+    border-left-color:var(--amber);
+    background:rgba(232,163,61,0.08);
+  }
+  .navlink .count{
+    margin-left:auto; background:var(--surface-2); color:var(--muted);
+    font-size:11.5px; padding:1px 7px; border-radius:10px;
+  }
+
+  main{ flex:1; padding:36px 44px; max-width:1180px; }
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  .pageHead{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:26px; flex-wrap:wrap; gap:10px;}
+  .pageHead h2{ font-size:30px; margin:0; }
+  .pageHead .sub{ color:var(--muted); font-size:14px; margin-top:4px; }
+  #sortSelect{
+    background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:8px 12px; border-radius:var(--radius); font-size:13.5px; font-family:inherit; cursor:pointer;
+  }
+  #sortSelect:focus{ outline:none; border-color:var(--amber); }
+
+  /* ---------- setup banner ---------- */
+  .banner{
+    background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--amber);
+    padding:14px 18px; border-radius:var(--radius); margin-bottom:24px; font-size:13.5px; color:var(--muted);
+  }
+  .banner code{ background:var(--bg); padding:1px 5px; border-radius:3px; color:var(--amber); }
+
+  /* ---------- series grid ---------- */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:20px; }
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; cursor:pointer; display:flex; flex-direction:column;
+  }
+  .card:hover{ border-color:var(--amber); }
+  .poster{ width:100%; aspect-ratio:2/3; background:var(--surface-2) center/cover no-repeat; position:relative; }
+  .poster .dot{
+    position:absolute; top:8px; right:8px; width:9px; height:9px; border-radius:50%;
+    box-shadow:0 0 6px currentColor;
+  }
+  .card .info{ padding:10px 12px 12px; }
+  .card .title{ font-size:14.5px; font-weight:600; line-height:1.25; margin:0 0 6px; }
+  .card .prog{ font-size:11.5px; color:var(--muted); }
+  .card .bar{ height:3px; background:var(--surface-2); border-radius:2px; margin-top:6px; overflow:hidden; }
+  .card .bar > div{ height:100%; }
+
+  .empty{ color:var(--muted); font-size:14px; padding:40px 0; text-align:center; border:1px dashed var(--line); border-radius:var(--radius); }
+
+  /* ---------- search ---------- */
+  .searchBar{ display:flex; gap:10px; margin-bottom:24px; }
+  .searchBar input{
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:11px 14px; border-radius:var(--radius); font-size:14.5px; font-family:inherit;
+  }
+  .searchBar input:focus{ outline:none; border-color:var(--amber); }
+  .searchBar button{
+    background:var(--amber); color:#1a1206; border:none; padding:0 22px; border-radius:var(--radius);
+    font-weight:700; cursor:pointer; font-size:14px;
+  }
+  .resultRow{
+    display:flex; gap:14px; padding:12px; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); margin-bottom:10px; align-items:center;
+  }
+  .resultRow img{ width:52px; height:78px; object-fit:cover; border-radius:3px; background:var(--surface-2); }
+  .resultRow .meta{ flex:1; }
+  .resultRow .meta .t{ font-weight:600; font-size:15px; }
+  .resultRow .meta .y{ color:var(--muted); font-size:12.5px; }
+  .resultRow button{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:7px 14px; border-radius:var(--radius); cursor:pointer; font-size:13px; font-weight:600;
+  }
+  .resultRow button:hover{ border-color:var(--teal); color:var(--teal); }
+  .resultRow button:disabled{ opacity:0.5; cursor:default; }
+
+  /* ---------- calendar ---------- */
+  .calRow{
+    display:flex; gap:16px; align-items:center; padding:14px 16px; background:var(--surface);
+    border:1px solid var(--line); border-radius:var(--radius); margin-bottom:10px;
+  }
+  .calDate{
+    font-family:'Big Shoulders Display'; font-weight:700; font-size:20px; color:var(--amber);
+    width:70px; flex-shrink:0; text-align:center; line-height:1.1;
+  }
+  .calDate span{ display:block; font-family:'Inter'; font-size:10.5px; color:var(--muted); font-weight:500; }
+  .calInfo .t{ font-weight:600; font-size:14.5px; }
+  .calInfo .e{ color:var(--muted); font-size:12.5px; margin-top:2px; }
+
+  /* ---------- modal (episode tracker) ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(8,9,13,0.72); display:none; align-items:flex-start; justify-content:center;
+    padding:40px 20px; overflow-y:auto; z-index:50;
+  }
+  .overlay.active{ display:flex; }
+  .modal{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    width:100%; max-width:640px; padding:26px 28px 30px;
+  }
+  .modal .top{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:6px; }
+  .modal h2{ font-size:26px; margin:0; }
+  .modal .close{ cursor:pointer; color:var(--muted); font-size:22px; line-height:1; background:none; border:none; }
+  .modal .status{ display:flex; gap:8px; margin:14px 0 20px; flex-wrap:wrap; }
+  .statusBtn{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--muted); font-size:12.5px;
+    padding:6px 13px; border-radius:14px; cursor:pointer; font-weight:600;
+  }
+  .statusBtn.on{ color:#0d0f14; border-color:transparent; }
+  .statusBtn[data-s="towatch"].on{ background:var(--muted); }
+  .statusBtn[data-s="watching"].on{ background:var(--amber); }
+  .statusBtn[data-s="caughtup"].on{ background:var(--yellow); }
+  .statusBtn[data-s="done"].on{ background:var(--teal); }
+  .statusBtn[data-s="dropped"].on{ background:var(--red); color:#1a0d0a; }
+  .season{ margin-bottom:16px; }
+  .season h3{ font-size:14px; color:var(--muted); font-weight:700; margin:0 0 8px; text-transform:none; }
+  .epList{ display:flex; flex-wrap:wrap; gap:6px; }
+  .epChip{
+    width:34px; height:30px; display:flex; align-items:center; justify-content:center;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:3px; font-size:11.5px;
+    color:var(--muted); cursor:pointer; font-weight:600;
+  }
+  .epChip.seen{ background:var(--teal); border-color:var(--teal); color:#08221a; }
+  .removeBtn{
+    margin-top:22px; background:none; border:1px solid var(--red); color:var(--red);
+    padding:8px 16px; border-radius:var(--radius); cursor:pointer; font-size:13px; font-weight:600;
+  }
+  .loading{ color:var(--muted); font-size:13.5px; padding:10px 0; }
+
+  @media(max-width:720px){
+    .app{ flex-direction:column; }
+    nav.side{ width:100%; flex-direction:row; overflow-x:auto; padding:14px 0; }
+    .brand{ display:none; }
+    .navlink{ padding:8px 16px; white-space:nowrap; border-left:none; border-bottom:3px solid transparent; }
+    .navlink.active{ border-bottom-color:var(--amber); }
+    main{ padding:22px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <nav class="side">
+    <div class="brand">
+      <span class="tally"></span><h1>Palinsesto</h1>
+      <p>le tue serie, in onda</p>
+    </div>
+    <div class="navlink active" data-view="mine">Le mie serie <span class="count" id="countMine">0</span></div>
+    <div class="navlink" data-view="add">Aggiungi</div>
+    <div class="navlink" data-view="calendar">Calendario <span class="count" id="countCal">0</span></div>
+  </nav>
+
+  <main>
+    <!-- ================= LE MIE SERIE ================= -->
+    <section class="view active" id="view-mine">
+      <div class="pageHead">
+        <div><h2>Le mie serie</h2><div class="sub">Tutto quello che segui, in un colpo d'occhio</div></div>
+        <select id="sortSelect">
+          <option value="az">Ordine A-Z</option>
+          <option value="chrono">Cronologico</option>
+          <option value="status">Per stato</option>
+        </select>
+      </div>
+      <div id="setupBanner"></div>
+      <div class="grid" id="mineGrid"></div>
+    </section>
+
+    <!-- ================= AGGIUNGI ================= -->
+    <section class="view" id="view-add">
+      <div class="pageHead">
+        <div><h2>Aggiungi una serie</h2><div class="sub">Cerca nel database TMDB</div></div>
+      </div>
+      <div class="searchBar">
+        <input type="text" id="searchInput" placeholder="Cerca una serie TV…">
+        <button id="searchBtn">Cerca</button>
+      </div>
+      <div id="searchResults"></div>
+    </section>
+
+    <!-- ================= CALENDARIO ================= -->
+    <section class="view" id="view-calendar">
+      <div class="pageHead">
+        <div><h2>Calendario</h2><div class="sub">Prossimi episodi delle serie che segui</div></div>
+      </div>
+      <div id="calList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ================= MODAL EPISODI ================= -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="top">
+      <h2 id="modalTitle">—</h2>
+      <button class="close" id="modalClose">&times;</button>
+    </div>
+    <div class="status">
+      <button class="statusBtn" data-s="towatch">Da iniziare</button>
+      <button class="statusBtn" data-s="watching">In corso</button>
+      <button class="statusBtn" data-s="caughtup">In pari</button>
+      <button class="statusBtn" data-s="done">Conclusa</button>
+      <button class="statusBtn" data-s="dropped">Interrotta</button>
+    </div>
+    <div id="modalSeasons"><div class="loading">Carico le stagioni…</div></div>
+    <button class="removeBtn" id="removeBtn">Rimuovi dalla lista</button>
+  </div>
+</div>
+
+<script type="module">
+/* ============================================================
+   CONFIGURAZIONE — da compilare prima di pubblicare il sito
+   ============================================================ */
+
+// 1) Chiave API TMDB (gratuita): https://www.themoviedb.org/settings/api
+const TMDB_API_KEY = "INSERISCI_LA_TUA_CHIAVE_TMDB";
+
+// 2) Config del tuo progetto Firebase (Project settings > General > Your apps)
+const firebaseConfig = {
+  apiKey: "INSERISCI_API_KEY",
+  authDomain: "INSERISCI.firebaseapp.com",
+  projectId: "INSERISCI_PROJECT_ID",
+  storageBucket: "INSERISCI.appspot.com",
+  messagingSenderId: "INSERISCI",
+  appId: "INSERISCI"
+};
+
+/* ============================================================ */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const configured = TMDB_API_KEY !== "INSERISCI_LA_TUA_CHIAVE_TMDB" && firebaseConfig.apiKey !== "INSERISCI_API_KEY";
+
+let db = null;
+let myShows = {}; // tmdbId -> show data
+
+if (configured) {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  const auth = getAuth(app);
+  signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+  onSnapshot(collection(db, "shows"), snap => {
+    myShows = {};
+    snap.forEach(d => myShows[d.id] = d.data());
+    renderMine();
+    renderCalendar();
+  });
+} else {
+  document.getElementById("setupBanner").innerHTML = `
+    <div class="banner">
+      Il sito non è ancora collegato a TMDB e Firebase. Apri <code>index.html</code> e inserisci la tua
+      chiave API TMDB e la configurazione del tuo progetto Firebase nella sezione CONFIGURAZIONE in cima allo script.
+    </div>`;
+}
+
+/* ---------------- navigazione ---------------- */
+document.querySelectorAll(".navlink").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".navlink").forEach(n => n.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    el.classList.add("active");
+    document.getElementById("view-" + el.dataset.view).classList.add("active");
+  });
+});
+
+/* ---------------- TMDB helpers ---------------- */
+const IMG = "https://image.tmdb.org/t/p/w300";
+async function tmdb(path, params = "") {
+  const url = `https://api.themoviedb.org/3${path}?api_key=${TMDB_API_KEY}&language=it-IT${params}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Errore TMDB: " + res.status);
+  return res.json();
+}
+
+/* ---------------- ricerca / aggiunta ---------------- */
+document.getElementById("searchBtn").addEventListener("click", doSearch);
+document.getElementById("searchInput").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+
+async function doSearch() {
+  const q = document.getElementById("searchInput").value.trim();
+  const box = document.getElementById("searchResults");
+  if (!q) return;
+  if (!configured) { box.innerHTML = `<div class="banner">Configura prima TMDB e Firebase (vedi sopra).</div>`; return; }
+  box.innerHTML = `<div class="loading">Cerco…</div>`;
+  try {
+    const data = await tmdb("/search/tv", "&query=" + encodeURIComponent(q));
+    if (!data.results || !data.results.length) { box.innerHTML = `<div class="empty">Nessun risultato per "${q}"</div>`; return; }
+    box.innerHTML = "";
+    data.results.slice(0, 12).forEach(show => {
+      const already = !!myShows[show.id];
+      const row = document.createElement("div");
+      row.className = "resultRow";
+      const year = (show.first_air_date || "").slice(0, 4) || "—";
+      row.innerHTML = `
+        <img src="${show.poster_path ? IMG + show.poster_path : ''}" alt="">
+        <div class="meta"><div class="t">${show.name}</div><div class="y">${year}</div></div>
+        <button ${already ? "disabled" : ""}>${already ? "Già aggiunta" : "Aggiungi"}</button>
+      `;
+      row.querySelector("button").addEventListener("click", () => addShow(show));
+      box.appendChild(row);
+    });
+  } catch (e) {
+    box.innerHTML = `<div class="banner">Errore nella ricerca: ${e.message}</div>`;
+  }
+}
+
+async function addShow(show) {
+  await setDoc(doc(db, "shows", String(show.id)), {
+    id: show.id,
+    name: show.name,
+    poster: show.poster_path || "",
+    status: "towatch",
+    watchedEpisodes: [],
+    addedAt: Date.now()
+  });
+  doSearch(); // refresh row state
+}
+
+/* ---------------- griglia "le mie serie" ---------------- */
+function statusColor(s) {
+  return s === "done" ? "var(--teal)"
+       : s === "watching" ? "var(--amber)"
+       : s === "caughtup" ? "var(--yellow)"
+       : s === "dropped" ? "var(--red)"
+       : "var(--muted)";
+}
+
+let currentSort = "az";
+document.getElementById("sortSelect").addEventListener("change", e => {
+  currentSort = e.target.value;
+  renderMine();
+});
+
+const STATUS_ORDER = ["towatch", "watching", "caughtup", "done", "dropped"];
+
+function sortShows(shows) {
+  if (currentSort === "az") {
+    return shows.sort((a, b) => a.name.localeCompare(b.name, "it"));
+  }
+  if (currentSort === "chrono") {
+    // cronologico: le prime aggiunte in alto, le più recenti in fondo
+    return shows.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+  }
+  if (currentSort === "status") {
+    // dal basso: interrotte, concluse, in pari, in corso (quindi in cima: in corso)
+    return shows.sort((a, b) => {
+      const diff = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+      return diff !== 0 ? diff : a.name.localeCompare(b.name, "it");
+    });
+  }
+  return shows;
+}
+
+function renderMine() {
+  const grid = document.getElementById("mineGrid");
+  const shows = sortShows(Object.values(myShows));
+  document.getElementById("countMine").textContent = shows.length;
+  if (!shows.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">Non hai ancora aggiunto nessuna serie. Vai su "Aggiungi" per iniziare.</div>`;
+    return;
+  }
+  grid.innerHTML = "";
+  shows.forEach(s => {
+    const total = s.totalEpisodes || 0;
+    const watched = (s.watchedEpisodes || []).length;
+    const pct = total ? Math.round((watched / total) * 100) : 0;
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="poster" style="background-image:url('${s.poster ? IMG + s.poster : ''}')">
+        <div class="dot" style="background:${statusColor(s.status)}; color:${statusColor(s.status)}"></div>
+      </div>
+      <div class="info">
+        <p class="title">${s.name}</p>
+        <div class="prog">${total ? watched + " / " + total + " episodi" : "dettagli in caricamento"}</div>
+        <div class="bar"><div style="width:${pct}%; background:${statusColor(s.status)}"></div></div>
+      </div>
+    `;
+    card.addEventListener("click", () => openModal(s));
+    grid.appendChild(card);
+  });
+}
+
+/* ---------------- modal episodi ---------------- */
+const overlay = document.getElementById("overlay");
+let activeShow = null;
+
+document.getElementById("modalClose").addEventListener("click", closeModal);
+overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
+function closeModal() { overlay.classList.remove("active"); activeShow = null; }
+
+document.querySelectorAll(".statusBtn").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    if (!activeShow) return;
+    activeShow.status = btn.dataset.s;
+    document.querySelectorAll(".statusBtn").forEach(b => b.classList.toggle("on", b.dataset.s === activeShow.status));
+    await setDoc(doc(db, "shows", String(activeShow.id)), activeShow);
+  });
+});
+
+document.getElementById("removeBtn").addEventListener("click", async () => {
+  if (!activeShow) return;
+  if (confirm(`Rimuovere "${activeShow.name}" dalla lista?`)) {
+    await deleteDoc(doc(db, "shows", String(activeShow.id)));
+    closeModal();
+  }
+});
+
+async function openModal(show) {
+  activeShow = { ...show };
+  document.getElementById("modalTitle").textContent = show.name;
+  document.querySelectorAll(".statusBtn").forEach(b => b.classList.toggle("on", b.dataset.s === show.status));
+  const seasonsBox = document.getElementById("modalSeasons");
+  seasonsBox.innerHTML = `<div class="loading">Carico le stagioni…</div>`;
+  overlay.classList.add("active");
+
+  try {
+    const details = await tmdb("/tv/" + show.id);
+    let totalEpisodes = 0;
+    seasonsBox.innerHTML = "";
+    for (const season of details.seasons.filter(s => s.season_number > 0)) {
+      totalEpisodes += season.episode_count;
+      const seasonData = await tmdb(`/tv/${show.id}/season/${season.season_number}`);
+      const block = document.createElement("div");
+      block.className = "season";
+      block.innerHTML = `<h3>${season.name}</h3><div class="epList"></div>`;
+      const list = block.querySelector(".epList");
+      seasonData.episodes.forEach(ep => {
+        const key = `${season.season_number}x${ep.episode_number}`;
+        const chip = document.createElement("div");
+        chip.className = "epChip" + ((activeShow.watchedEpisodes || []).includes(key) ? " seen" : "");
+        chip.textContent = ep.episode_number;
+        chip.title = ep.name;
+        chip.addEventListener("click", async () => {
+          activeShow.watchedEpisodes = activeShow.watchedEpisodes || [];
+          const i = activeShow.watchedEpisodes.indexOf(key);
+          if (i >= 0) activeShow.watchedEpisodes.splice(i, 1); else activeShow.watchedEpisodes.push(key);
+          chip.classList.toggle("seen");
+          await setDoc(doc(db, "shows", String(activeShow.id)), activeShow);
+        });
+        list.appendChild(chip);
+      });
+      seasonsBox.appendChild(block);
+    }
+    activeShow.totalEpisodes = totalEpisodes;
+    activeShow.nextEpisode = details.next_episode_to_air || null;
+    await setDoc(doc(db, "shows", String(activeShow.id)), activeShow);
+  } catch (e) {
+    seasonsBox.innerHTML = `<div class="banner">Errore nel caricamento delle stagioni: ${e.message}</div>`;
+  }
+}
+
+/* ---------------- calendario ---------------- */
+function renderCalendar() {
+  const box = document.getElementById("calList");
+  const shows = Object.values(myShows).filter(s => s.nextEpisode && s.nextEpisode.air_date);
+  shows.sort((a, b) => new Date(a.nextEpisode.air_date) - new Date(b.nextEpisode.air_date));
+  document.getElementById("countCal").textContent = shows.length;
+  if (!shows.length) {
+    box.innerHTML = `<div class="empty">Nessun episodio in arrivo per ora. Apri una serie in "Le mie serie" per aggiornare i dati.</div>`;
+    return;
+  }
+  box.innerHTML = "";
+  const months = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+  shows.forEach(s => {
+    const d = new Date(s.nextEpisode.air_date);
+    const row = document.createElement("div");
+    row.className = "calRow";
+    row.innerHTML = `
+      <div class="calDate">${d.getDate()}<span>${months[d.getMonth()]}</span></div>
+      <div class="calInfo">
+        <div class="t">${s.name}</div>
+        <div class="e">Stagione ${s.nextEpisode.season_number} · Episodio ${s.nextEpisode.episode_number} — ${s.nextEpisode.name || ""}</div>
+      </div>
+    `;
+    box.appendChild(row);
+  });
+}
+</script>
+</body>
+</html>
