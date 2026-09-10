@@ -943,19 +943,23 @@ function renderStats() {
 
   const shows = Object.values(myShows);
 
-  // raccogli ogni episodio visto con la sua data e durata
-  const watched = [];
+  // ogni episodio visto: sempre conteggiato nei totali; con una data (reale o stimata
+  // dalla data di uscita) quando possibile, per i grafici nel tempo
+  const allWatched = [];
+  const watched = []; // solo quelli con una data valida, per i grafici temporali
   shows.forEach(s => {
     const dates = s.watchedDates || {};
+    const meta = s.episodeMeta || {};
     (s.watchedEpisodes || []).forEach(key => {
-      const dateStr = dates[key];
-      if (!dateStr) return;
-      watched.push({ show: s, date: new Date(dateStr + "T00:00:00"), minutes: episodeRuntime(s, key) });
+      const minutes = episodeRuntime(s, key);
+      allWatched.push({ show: s, minutes });
+      const dateStr = dates[key] || (meta[key] && meta[key].airDate) || null;
+      if (dateStr) watched.push({ show: s, date: new Date(dateStr + "T00:00:00"), minutes });
     });
   });
 
-  const totalEpisodes = watched.length;
-  const totalMinutes = watched.reduce((sum, w) => sum + w.minutes, 0);
+  const totalEpisodes = allWatched.length;
+  const totalMinutes = allWatched.reduce((sum, w) => sum + w.minutes, 0);
   const statusCounts = {};
   shows.forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
 
