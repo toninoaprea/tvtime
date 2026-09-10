@@ -234,6 +234,7 @@
   .statGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:30px; }
   .statCard{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; }
   .statCard .val{ font-family:'Big Shoulders Display'; font-weight:700; font-size:32px; color:var(--amber); line-height:1; }
+  .statCard .val.small{ font-size:20px; }
   .statCard .lbl{ color:var(--muted); font-size:12.5px; margin-top:6px; }
   .statBlock{ margin-bottom:34px; }
   .statBlock h3{ font-size:16px; margin:0 0 14px; }
@@ -928,6 +929,22 @@ function formatHours(totalMinutes) {
   return `${totalHours}h`;
 }
 
+function formatDurationFull(totalMinutes) {
+  let rem = Math.round(totalMinutes);
+  const years = Math.floor(rem / (60 * 24 * 365)); rem -= years * 60 * 24 * 365;
+  const months = Math.floor(rem / (60 * 24 * 30)); rem -= months * 60 * 24 * 30;
+  const days = Math.floor(rem / (60 * 24)); rem -= days * 60 * 24;
+  const hours = Math.floor(rem / 60); rem -= hours * 60;
+  const minutes = rem;
+  const parts = [];
+  if (years) parts.push(`${years}a`);
+  if (months) parts.push(`${months}m`);
+  if (days) parts.push(`${days}g`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes || !parts.length) parts.push(`${minutes}min`);
+  return parts.join(" ");
+}
+
 let statPeriod = "month";
 document.getElementById("statPeriod").addEventListener("change", e => {
   statPeriod = e.target.value;
@@ -970,7 +987,7 @@ function renderStats() {
   // ---- card riassuntive ----
   cardsBox.innerHTML = `
     <div class="statCard"><div class="val">${totalEpisodes}</div><div class="lbl">Episodi visti</div></div>
-    <div class="statCard"><div class="val">${formatHours(totalMinutes)}</div><div class="lbl">Ore viste</div></div>
+    <div class="statCard fullDuration"><div class="val small">${formatDurationFull(totalMinutes)}</div><div class="lbl">Ore viste</div></div>
     <div class="statCard"><div class="val">${statusCounts.done || 0}</div><div class="lbl">Serie concluse</div></div>
     <div class="statCard"><div class="val">${statusCounts.watching || 0}</div><div class="lbl">Serie in corso</div></div>
   `;
