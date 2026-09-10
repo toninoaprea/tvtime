@@ -281,17 +281,26 @@
    ============================================================ */
 
 // 1) Chiave API TMDB (gratuita): https://www.themoviedb.org/settings/api
-const TMDB_API_KEY = "INSERISCI_LA_TUA_CHIAVE_TMDB";
+const TMDB_API_KEY = "71886096e3ea99da39246fd741b6eba4";
 
 // 2) Config del tuo progetto Firebase (Project settings > General > Your apps)
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "INSERISCI_API_KEY",
-  authDomain: "INSERISCI.firebaseapp.com",
-  projectId: "INSERISCI_PROJECT_ID",
-  storageBucket: "INSERISCI.appspot.com",
-  messagingSenderId: "INSERISCI",
-  appId: "INSERISCI"
+  apiKey: "AIzaSyDVDUI7rbVMdW6zUJdWzsU-8S2gFmYAUoc",
+  authDomain: "tvtime-4de2f.firebaseapp.com",
+  projectId: "tvtime-4de2f",
+  storageBucket: "tvtime-4de2f.firebasestorage.app",
+  messagingSenderId: "126776440052",
+  appId: "1:126776440052:web:7c106b9e20ef78b7aa5aa1"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
 /* ============================================================ */
 
