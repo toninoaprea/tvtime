@@ -90,6 +90,13 @@
     padding:8px 12px; border-radius:var(--radius); font-size:13.5px; font-family:inherit; cursor:pointer;
   }
   #sortSelect:focus{ outline:none; border-color:var(--amber); }
+  .filterBar{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:22px; }
+  .filterChip{
+    background:var(--surface); border:1px solid var(--line); color:var(--muted);
+    padding:7px 15px; border-radius:14px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .filterChip:hover{ color:var(--text); border-color:var(--amber); }
+  .filterChip.active{ background:var(--amber); color:#1a1206; border-color:transparent; }
 
   /* ---------- setup banner ---------- */
   .banner{
@@ -189,6 +196,27 @@
     padding:4px 10px; border-radius:12px; cursor:pointer; white-space:nowrap;
   }
   .selectAllBtn:hover{ border-color:var(--teal); color:var(--teal); }
+
+  .genreEditor{ margin-bottom:18px; }
+  .genreChips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .genreChip{
+    display:flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--text); font-size:12px; font-weight:600; padding:5px 6px 5px 11px; border-radius:12px;
+  }
+  .genreChip button{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; padding:0 2px;
+  }
+  .genreChip button:hover{ color:var(--red); }
+  .genreAdd{ display:flex; gap:8px; }
+  .genreAdd input{
+    flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:8px 12px; border-radius:var(--radius); font-size:13px; font-family:inherit;
+  }
+  .genreAdd input:focus{ outline:none; border-color:var(--amber); }
+  .genreAdd button{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:0 14px; border-radius:var(--radius); cursor:pointer; font-size:12.5px; font-weight:600;
+  }
   .epList{ display:flex; flex-wrap:wrap; gap:6px; }
   .epChip{
     width:34px; height:30px; display:flex; align-items:center; justify-content:center;
@@ -320,6 +348,14 @@
           <option value="status">Per stato</option>
         </select>
       </div>
+      <div class="filterBar" id="filterBar">
+        <button class="filterChip active" data-f="all">Tutte</button>
+        <button class="filterChip" data-f="towatch">Da iniziare</button>
+        <button class="filterChip" data-f="watching">In corso</button>
+        <button class="filterChip" data-f="caughtup">In pari</button>
+        <button class="filterChip" data-f="done">Concluse</button>
+        <button class="filterChip" data-f="dropped">Interrotte</button>
+      </div>
       <div id="setupBanner"></div>
       <div class="grid" id="mineGrid"></div>
     </section>
@@ -359,6 +395,7 @@
             <option value="week">Ultime settimane</option>
             <option value="month" selected>Ultimi mesi</option>
             <option value="year">Ultimi anni</option>
+            <option value="all">Da sempre</option>
           </select>
         </div>
         <div class="barChart" id="timeChart"></div>
@@ -395,6 +432,13 @@
       <button class="statusBtn" data-s="caughtup">In pari</button>
       <button class="statusBtn" data-s="done">Conclusa</button>
       <button class="statusBtn" data-s="dropped">Interrotta</button>
+    </div>
+    <div class="genreEditor">
+      <div class="genreChips" id="genreChips"></div>
+      <div class="genreAdd">
+        <input type="text" id="genreInput" placeholder="Aggiungi un genere (es. Fantasy)…">
+        <button id="genreAddBtn" type="button">Aggiungi</button>
+      </div>
     </div>
     <div id="modalSeasons"><div class="loading">Carico le stagioni…</div></div>
     <button class="removeBtn" id="removeBtn">Rimuovi dalla lista</button>
@@ -617,6 +661,15 @@ document.getElementById("sortSelect").addEventListener("change", e => {
   renderMine();
 });
 
+let currentFilter = "all";
+document.getElementById("filterBar").addEventListener("click", e => {
+  const btn = e.target.closest(".filterChip");
+  if (!btn) return;
+  currentFilter = btn.dataset.f;
+  document.querySelectorAll(".filterChip").forEach(c => c.classList.toggle("active", c === btn));
+  renderMine();
+});
+
 const STATUS_ORDER = ["towatch", "watching", "caughtup", "done", "dropped"];
 
 function sortShows(shows) {
@@ -640,10 +693,16 @@ function sortShows(shows) {
 
 function renderMine() {
   const grid = document.getElementById("mineGrid");
-  const shows = sortShows(Object.values(myShows));
-  document.getElementById("countMine").textContent = shows.length;
+  let shows = Object.values(myShows);
+  if (currentFilter !== "all") shows = shows.filter(s => s.status === currentFilter);
+  shows = sortShows(shows);
+  document.getElementById("countMine").textContent = Object.keys(myShows).length;
   if (!shows.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">Non hai ancora aggiunto nessuna serie. Vai su "Aggiungi" per iniziare.</div>`;
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${
+      currentFilter === "all"
+        ? `Non hai ancora aggiunto nessuna serie. Vai su "Aggiungi" per iniziare.`
+        : `Nessuna serie in questo stato.`
+    }</div>`;
     return;
   }
   grid.innerHTML = "";
@@ -676,6 +735,36 @@ document.getElementById("modalClose").addEventListener("click", closeModal);
 overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
 function closeModal() { overlay.classList.remove("active"); activeShow = null; }
 
+function renderGenreChips() {
+  const box = document.getElementById("genreChips");
+  const genres = (activeShow && activeShow.genres) || [];
+  box.innerHTML = genres.map((g, i) => `
+    <span class="genreChip">${g}<button type="button" data-i="${i}">&times;</button></span>
+  `).join("");
+  box.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      activeShow.genres.splice(Number(btn.dataset.i), 1);
+      renderGenreChips();
+      await setDoc(showDoc(activeShow.id), activeShow);
+    });
+  });
+}
+
+async function addGenre() {
+  const input = document.getElementById("genreInput");
+  const val = input.value.trim();
+  if (!val || !activeShow) return;
+  activeShow.genres = activeShow.genres || [];
+  if (!activeShow.genres.some(g => g.toLowerCase() === val.toLowerCase())) {
+    activeShow.genres.push(val);
+    renderGenreChips();
+    await setDoc(showDoc(activeShow.id), activeShow);
+  }
+  input.value = "";
+}
+document.getElementById("genreAddBtn").addEventListener("click", addGenre);
+document.getElementById("genreInput").addEventListener("keydown", e => { if (e.key === "Enter") addGenre(); });
+
 document.querySelectorAll(".statusBtn").forEach(btn => {
   btn.addEventListener("click", async () => {
     if (!activeShow) return;
@@ -699,6 +788,7 @@ async function openModal(show) {
   document.querySelectorAll(".statusBtn").forEach(b => b.classList.toggle("on", b.dataset.s === show.status));
   const seasonsBox = document.getElementById("modalSeasons");
   seasonsBox.innerHTML = `<div class="loading">Carico le stagioni…</div>`;
+  renderGenreChips();
   overlay.classList.add("active");
 
   try {
@@ -781,8 +871,9 @@ async function openModal(show) {
     activeShow.totalEpisodes = totalEpisodes;
     activeShow.nextEpisode = details.next_episode_to_air || null;
     activeShow.firstAirDate = details.first_air_date || activeShow.firstAirDate || "";
-    activeShow.genres = (details.genres || []).map(g => g.name);
+    activeShow.genres = (activeShow.genres && activeShow.genres.length) ? activeShow.genres : (details.genres || []).map(g => g.name);
     activeShow.avgRuntime = (details.episode_run_time && details.episode_run_time[0]) || activeShow.avgRuntime || 30;
+    renderGenreChips();
     await setDoc(showDoc(activeShow.id), activeShow);
   } catch (e) {
     seasonsBox.innerHTML = `<div class="banner">Errore nel caricamento delle stagioni: ${e.message}</div>`;
@@ -888,6 +979,11 @@ function renderStats() {
   } else if (statPeriod === "year") {
     for (let i = 4; i >= 0; i--) {
       const y = now.getFullYear() - i;
+      buckets.push({ label: String(y), start: new Date(y,0,1), end: new Date(y,11,31,23,59,59), count: 0 });
+    }
+  } else if (statPeriod === "all") {
+    const minYear = watched.length ? Math.min(...watched.map(w => w.date.getFullYear())) : now.getFullYear();
+    for (let y = minYear; y <= now.getFullYear(); y++) {
       buckets.push({ label: String(y), start: new Date(y,0,1), end: new Date(y,11,31,23,59,59), count: 0 });
     }
   } else {
