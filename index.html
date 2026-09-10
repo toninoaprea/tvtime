@@ -228,7 +228,16 @@
     .brand{ display:none; }
     .navlink{ padding:8px 16px; white-space:nowrap; border-left:none; border-bottom:3px solid transparent; }
     .navlink.active{ border-bottom-color:var(--amber); }
-    main{ padding:22px 18px; }
+    main{ padding:22px 14px; }
+    .grid{ grid-template-columns:repeat(3, 1fr); gap:10px; }
+    .card .info{ padding:6px 7px 8px; }
+    .card .title{ font-size:12px; }
+    .card .prog{ font-size:10px; }
+    .pageHead{ flex-direction:column; align-items:flex-start; }
+  }
+  @media(max-width:380px){
+    .grid{ gap:8px; }
+    .card .title{ font-size:11px; }
   }
 </style>
 </head>
@@ -503,6 +512,7 @@ async function addShow(show) {
     id: show.id,
     name: show.name,
     poster: show.poster_path || "",
+    firstAirDate: show.first_air_date || "",
     status: "towatch",
     watchedEpisodes: [],
     addedAt: Date.now()
@@ -532,8 +542,9 @@ function sortShows(shows) {
     return shows.sort((a, b) => a.name.localeCompare(b.name, "it"));
   }
   if (currentSort === "chrono") {
-    // cronologico: le prime aggiunte in alto, le più recenti in fondo
-    return shows.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+    // cronologico: le serie più recenti (per anno di uscita) in alto, le più vecchie in fondo
+    const year = s => parseInt((s.firstAirDate || "").slice(0, 4), 10) || 0;
+    return shows.sort((a, b) => year(b) - year(a));
   }
   if (currentSort === "status") {
     // dal basso: interrotte, concluse, in pari, in corso (quindi in cima: in corso)
@@ -638,6 +649,7 @@ async function openModal(show) {
     }
     activeShow.totalEpisodes = totalEpisodes;
     activeShow.nextEpisode = details.next_episode_to_air || null;
+    activeShow.firstAirDate = details.first_air_date || activeShow.firstAirDate || "";
     await setDoc(showDoc(activeShow.id), activeShow);
   } catch (e) {
     seasonsBox.innerHTML = `<div class="banner">Errore nel caricamento delle stagioni: ${e.message}</div>`;
