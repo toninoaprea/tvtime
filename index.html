@@ -202,6 +202,35 @@
   }
   .loading{ color:var(--muted); font-size:13.5px; padding:10px 0; }
 
+  /* ---------- statistiche ---------- */
+  .statGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:30px; }
+  .statCard{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; }
+  .statCard .val{ font-family:'Big Shoulders Display'; font-weight:700; font-size:32px; color:var(--amber); line-height:1; }
+  .statCard .lbl{ color:var(--muted); font-size:12.5px; margin-top:6px; }
+  .statBlock{ margin-bottom:34px; }
+  .statBlock h3{ font-size:16px; margin:0 0 14px; }
+  .blockHead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .blockHead h3{ margin:0; }
+  #statPeriod{
+    background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:7px 11px; border-radius:var(--radius); font-size:13px; font-family:inherit; cursor:pointer;
+  }
+  .barChart{ display:flex; align-items:flex-end; gap:6px; height:130px; padding:0 2px; }
+  .barChart .bcol{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; min-width:0; }
+  .barChart .bcol .b{ width:100%; max-width:34px; background:var(--amber); border-radius:3px 3px 0 0; min-height:2px; }
+  .barChart .bcol .n{ font-size:10.5px; color:var(--muted); margin-bottom:3px; }
+  .barChart .bcol .lb{ font-size:10px; color:var(--muted); margin-top:6px; white-space:nowrap; }
+  .barChart.weekday .bcol .b{ background:var(--teal); }
+  .genreList .grow, .topList .trow{
+    display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line);
+  }
+  .genreList .grow:last-child, .topList .trow:last-child{ border-bottom:none; }
+  .genreList .gname, .topList .tname{ width:130px; flex-shrink:0; font-size:13.5px; font-weight:600; }
+  .genreList .gbar, .topList .tbar{ flex:1; height:8px; background:var(--surface-2); border-radius:4px; overflow:hidden; }
+  .genreList .gbar > div{ height:100%; background:var(--amber); }
+  .topList .tbar > div{ height:100%; background:var(--teal); }
+  .genreList .gnum, .topList .tnum{ width:90px; flex-shrink:0; text-align:right; font-size:12px; color:var(--muted); }
+
   /* ---------- login ---------- */
   .authScreen{
     position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
@@ -240,6 +269,10 @@
     .card .title{ font-size:12px; }
     .card .prog{ font-size:10px; }
     .pageHead{ flex-direction:column; align-items:flex-start; }
+    .statGrid{ grid-template-columns:repeat(2,1fr); }
+    .genreList .gname, .topList .tname{ width:80px; font-size:12px; }
+    .genreList .gnum, .topList .tnum{ width:70px; font-size:10.5px; }
+    .barChart{ height:100px; }
   }
   @media(max-width:380px){
     .grid{ gap:8px; }
@@ -272,6 +305,7 @@
     <div class="navlink active" data-view="mine">Le mie serie <span class="count" id="countMine">0</span></div>
     <div class="navlink" data-view="add">Aggiungi</div>
     <div class="navlink" data-view="calendar">Calendario <span class="count" id="countCal">0</span></div>
+    <div class="navlink" data-view="stats">Statistiche</div>
     <div class="navlink" id="logoutBtn" style="margin-top:auto;">Esci</div>
   </nav>
 
@@ -308,6 +342,42 @@
         <div><h2>Calendario</h2><div class="sub">Prossimi episodi delle serie che segui</div></div>
       </div>
       <div id="calList"></div>
+    </section>
+
+    <!-- ================= STATISTICHE ================= -->
+    <section class="view" id="view-stats">
+      <div class="pageHead">
+        <div><h2>Statistiche</h2><div class="sub">Uno sguardo a tutto quello che hai guardato</div></div>
+      </div>
+
+      <div class="statGrid" id="statCards"></div>
+
+      <div class="statBlock">
+        <div class="blockHead">
+          <h3>Episodi visti nel tempo</h3>
+          <select id="statPeriod">
+            <option value="week">Ultime settimane</option>
+            <option value="month" selected>Ultimi mesi</option>
+            <option value="year">Ultimi anni</option>
+          </select>
+        </div>
+        <div class="barChart" id="timeChart"></div>
+      </div>
+
+      <div class="statBlock">
+        <h3>Per genere</h3>
+        <div id="genreList" class="genreList"></div>
+      </div>
+
+      <div class="statBlock">
+        <h3>Giorno della settimana</h3>
+        <div class="barChart weekday" id="weekdayChart"></div>
+      </div>
+
+      <div class="statBlock">
+        <h3>Le serie più viste</h3>
+        <div id="topShows" class="topList"></div>
+      </div>
     </section>
   </main>
 </div>
@@ -432,6 +502,7 @@ if (!configured) {
         snap.forEach(d => myShows[d.id] = d.data());
         renderMine();
         renderCalendar();
+        renderStats();
       });
     } else {
       appEl.classList.remove("ready");
@@ -464,6 +535,7 @@ function showDoc(id) {
 
 /* ---------------- navigazione ---------------- */
 document.querySelectorAll(".navlink").forEach(el => {
+  if (!el.dataset.view) return;
   el.addEventListener("click", () => {
     document.querySelectorAll(".navlink").forEach(n => n.classList.remove("active"));
     document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
@@ -521,6 +593,10 @@ async function addShow(show) {
     firstAirDate: show.first_air_date || "",
     status: "towatch",
     watchedEpisodes: [],
+    watchedDates: {},
+    episodeMeta: {},
+    genres: [],
+    avgRuntime: null,
     addedAt: Date.now()
   });
   doSearch(); // refresh row state
@@ -628,6 +704,8 @@ async function openModal(show) {
   try {
     const details = await tmdb("/tv/" + show.id);
     let totalEpisodes = 0;
+    activeShow.watchedDates = activeShow.watchedDates || {};
+    activeShow.episodeMeta = activeShow.episodeMeta || {};
     seasonsBox.innerHTML = "";
     for (const season of details.seasons.filter(s => s.season_number > 0)) {
       totalEpisodes += season.episode_count;
@@ -642,6 +720,10 @@ async function openModal(show) {
         <div class="epList"></div>`;
       const list = block.querySelector(".epList");
       const seasonKeys = seasonData.episodes.map(ep => `${season.season_number}x${ep.episode_number}`);
+      seasonData.episodes.forEach(ep => {
+        const key = `${season.season_number}x${ep.episode_number}`;
+        activeShow.episodeMeta[key] = { airDate: ep.air_date || "", runtime: ep.runtime || null };
+      });
       const selectAllBtn = block.querySelector(".selectAllBtn");
       function refreshSelectAllLabel() {
         activeShow.watchedEpisodes = activeShow.watchedEpisodes || [];
@@ -650,11 +732,20 @@ async function openModal(show) {
       }
       selectAllBtn.addEventListener("click", async () => {
         activeShow.watchedEpisodes = activeShow.watchedEpisodes || [];
+        activeShow.watchedDates = activeShow.watchedDates || {};
         const allSeen = seasonKeys.every(k => activeShow.watchedEpisodes.includes(k));
         if (allSeen) {
           activeShow.watchedEpisodes = activeShow.watchedEpisodes.filter(k => !seasonKeys.includes(k));
+          seasonKeys.forEach(k => delete activeShow.watchedDates[k]);
         } else {
-          seasonKeys.forEach(k => { if (!activeShow.watchedEpisodes.includes(k)) activeShow.watchedEpisodes.push(k); });
+          // aggiunta in blocco: usiamo la data di uscita dell'episodio, non oggi
+          seasonKeys.forEach(k => {
+            if (!activeShow.watchedEpisodes.includes(k)) {
+              activeShow.watchedEpisodes.push(k);
+              const meta = activeShow.episodeMeta[k];
+              activeShow.watchedDates[k] = (meta && meta.airDate) || todayISO();
+            }
+          });
         }
         list.querySelectorAll(".epChip").forEach(chip => chip.classList.toggle("seen", !allSeen));
         refreshSelectAllLabel();
@@ -668,8 +759,16 @@ async function openModal(show) {
         chip.title = ep.name;
         chip.addEventListener("click", async () => {
           activeShow.watchedEpisodes = activeShow.watchedEpisodes || [];
+          activeShow.watchedDates = activeShow.watchedDates || {};
           const i = activeShow.watchedEpisodes.indexOf(key);
-          if (i >= 0) activeShow.watchedEpisodes.splice(i, 1); else activeShow.watchedEpisodes.push(key);
+          if (i >= 0) {
+            activeShow.watchedEpisodes.splice(i, 1);
+            delete activeShow.watchedDates[key];
+          } else {
+            activeShow.watchedEpisodes.push(key);
+            // singolo click: assumiamo che tu lo stia vedendo ora
+            activeShow.watchedDates[key] = todayISO();
+          }
           chip.classList.toggle("seen");
           refreshSelectAllLabel();
           await setDoc(showDoc(activeShow.id), activeShow);
@@ -682,10 +781,18 @@ async function openModal(show) {
     activeShow.totalEpisodes = totalEpisodes;
     activeShow.nextEpisode = details.next_episode_to_air || null;
     activeShow.firstAirDate = details.first_air_date || activeShow.firstAirDate || "";
+    activeShow.genres = (details.genres || []).map(g => g.name);
+    activeShow.avgRuntime = (details.episode_run_time && details.episode_run_time[0]) || activeShow.avgRuntime || 30;
     await setDoc(showDoc(activeShow.id), activeShow);
   } catch (e) {
     seasonsBox.innerHTML = `<div class="banner">Errore nel caricamento delle stagioni: ${e.message}</div>`;
   }
+}
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function episodeRuntime(show, key) {
+  const meta = show.episodeMeta && show.episodeMeta[key];
+  return (meta && meta.runtime) || show.avgRuntime || 30;
 }
 
 /* ---------------- calendario ---------------- */
@@ -713,6 +820,145 @@ function renderCalendar() {
     `;
     box.appendChild(row);
   });
+}
+
+/* ---------------- statistiche ---------------- */
+function formatHours(totalMinutes) {
+  const totalHours = Math.round(totalMinutes / 60);
+  if (totalHours >= 24) {
+    const days = Math.floor(totalHours / 24);
+    const hrs = totalHours % 24;
+    return `${days}g ${hrs}h`;
+  }
+  return `${totalHours}h`;
+}
+
+let statPeriod = "month";
+document.getElementById("statPeriod").addEventListener("change", e => {
+  statPeriod = e.target.value;
+  renderStats();
+});
+
+const STATUS_LABEL = { towatch: "Da iniziare", watching: "In corso", caughtup: "In pari", done: "Concluse", dropped: "Interrotte" };
+const WEEKDAYS = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+
+function renderStats() {
+  const cardsBox = document.getElementById("statCards");
+  const timeBox = document.getElementById("timeChart");
+  const genreBox = document.getElementById("genreList");
+  const weekdayBox = document.getElementById("weekdayChart");
+  const topBox = document.getElementById("topShows");
+  if (!cardsBox) return;
+
+  const shows = Object.values(myShows);
+
+  // raccogli ogni episodio visto con la sua data e durata
+  const watched = [];
+  shows.forEach(s => {
+    const dates = s.watchedDates || {};
+    (s.watchedEpisodes || []).forEach(key => {
+      const dateStr = dates[key];
+      if (!dateStr) return;
+      watched.push({ show: s, date: new Date(dateStr + "T00:00:00"), minutes: episodeRuntime(s, key) });
+    });
+  });
+
+  const totalEpisodes = watched.length;
+  const totalMinutes = watched.reduce((sum, w) => sum + w.minutes, 0);
+  const statusCounts = {};
+  shows.forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
+
+  // ---- card riassuntive ----
+  cardsBox.innerHTML = `
+    <div class="statCard"><div class="val">${totalEpisodes}</div><div class="lbl">Episodi visti</div></div>
+    <div class="statCard"><div class="val">${formatHours(totalMinutes)}</div><div class="lbl">Ore viste</div></div>
+    <div class="statCard"><div class="val">${statusCounts.done || 0}</div><div class="lbl">Serie concluse</div></div>
+    <div class="statCard"><div class="val">${statusCounts.watching || 0}</div><div class="lbl">Serie in corso</div></div>
+  `;
+
+  // ---- grafico nel tempo ----
+  const buckets = [];
+  const now = new Date();
+  if (statPeriod === "week") {
+    for (let i = 11; i >= 0; i--) {
+      const start = new Date(now); start.setDate(now.getDate() - now.getDay() - i * 7 + 1);
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      buckets.push({ label: `${start.getDate()}/${start.getMonth()+1}`, start, end, count: 0 });
+    }
+  } else if (statPeriod === "year") {
+    for (let i = 4; i >= 0; i--) {
+      const y = now.getFullYear() - i;
+      buckets.push({ label: String(y), start: new Date(y,0,1), end: new Date(y,11,31,23,59,59), count: 0 });
+    }
+  } else {
+    const monthsShort = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const start = new Date(d.getFullYear(), d.getMonth(), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      buckets.push({ label: monthsShort[d.getMonth()], start, end, count: 0 });
+    }
+  }
+  watched.forEach(w => {
+    const b = buckets.find(b => w.date >= b.start && w.date <= b.end);
+    if (b) b.count++;
+  });
+  const maxCount = Math.max(1, ...buckets.map(b => b.count));
+  timeBox.innerHTML = buckets.map(b => `
+    <div class="bcol">
+      <div class="n">${b.count || ""}</div>
+      <div class="b" style="height:${Math.max(3, (b.count / maxCount) * 100)}%"></div>
+      <div class="lb">${b.label}</div>
+    </div>
+  `).join("");
+
+  // ---- per genere ----
+  const genreStats = {};
+  shows.forEach(s => {
+    const eps = (s.watchedEpisodes || []).length;
+    const mins = (s.watchedEpisodes || []).reduce((sum, k) => sum + episodeRuntime(s, k), 0);
+    (s.genres && s.genres.length ? s.genres : ["Senza genere"]).forEach(g => {
+      if (!genreStats[g]) genreStats[g] = { episodes: 0, minutes: 0 };
+      genreStats[g].episodes += eps;
+      genreStats[g].minutes += mins;
+    });
+  });
+  const genreEntries = Object.entries(genreStats).filter(([,v]) => v.episodes > 0).sort((a,b) => b[1].episodes - a[1].episodes);
+  const maxGenreEp = Math.max(1, ...genreEntries.map(([,v]) => v.episodes));
+  genreBox.innerHTML = genreEntries.length ? genreEntries.map(([name, v]) => `
+    <div class="grow">
+      <div class="gname">${name}</div>
+      <div class="gbar"><div style="width:${(v.episodes / maxGenreEp) * 100}%"></div></div>
+      <div class="gnum">${v.episodes} ep · ${formatHours(v.minutes)}</div>
+    </div>
+  `).join("") : `<div class="empty">Ancora nessun dato: apri le tue serie per recuperare i generi.</div>`;
+
+  // ---- giorno della settimana ----
+  const weekdayCounts = [0,0,0,0,0,0,0];
+  watched.forEach(w => { const d = (w.date.getDay() + 6) % 7; weekdayCounts[d]++; }); // lun=0
+  const maxWeekday = Math.max(1, ...weekdayCounts);
+  weekdayBox.innerHTML = WEEKDAYS.map((lb, i) => `
+    <div class="bcol">
+      <div class="n">${weekdayCounts[i] || ""}</div>
+      <div class="b" style="height:${Math.max(3, (weekdayCounts[i] / maxWeekday) * 100)}%"></div>
+      <div class="lb">${lb}</div>
+    </div>
+  `).join("");
+
+  // ---- top serie ----
+  const topShows = shows
+    .map(s => ({ name: s.name, count: (s.watchedEpisodes || []).length }))
+    .filter(s => s.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  const maxTop = Math.max(1, ...topShows.map(s => s.count));
+  topBox.innerHTML = topShows.length ? topShows.map(s => `
+    <div class="trow">
+      <div class="tname">${s.name}</div>
+      <div class="tbar"><div style="width:${(s.count / maxTop) * 100}%"></div></div>
+      <div class="tnum">${s.count} episodi</div>
+    </div>
+  `).join("") : `<div class="empty">Nessun episodio segnato come visto per ora.</div>`;
 }
 </script>
 </body>
