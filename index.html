@@ -196,6 +196,32 @@
   }
   .loading{ color:var(--muted); font-size:13.5px; padding:10px 0; }
 
+  /* ---------- login ---------- */
+  .authScreen{
+    position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  .authBox{
+    width:100%; max-width:340px; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); padding:32px 28px;
+  }
+  .authBox h1{ font-size:28px; margin:0 0 4px; }
+  .authBox p.sub{ color:var(--muted); font-size:13.5px; margin:0 0 22px; }
+  .authBox input{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:11px 13px; border-radius:var(--radius); font-size:14.5px; font-family:inherit; margin-bottom:10px;
+  }
+  .authBox input:focus{ outline:none; border-color:var(--amber); }
+  .authBox button{
+    width:100%; background:var(--amber); color:#1a1206; border:none; padding:11px; border-radius:var(--radius);
+    font-weight:700; cursor:pointer; font-size:14.5px; margin-top:4px;
+  }
+  .authSwitch{ text-align:center; margin-top:16px; font-size:13px; color:var(--muted); }
+  .authSwitch a{ color:var(--amber); cursor:pointer; text-decoration:none; }
+  .authError{ color:var(--red); font-size:13px; margin-bottom:10px; min-height:16px; }
+  .app{ display:none; }
+  .app.ready{ display:flex; }
+
   @media(max-width:720px){
     .app{ flex-direction:column; }
     nav.side{ width:100%; flex-direction:row; overflow-x:auto; padding:14px 0; }
@@ -208,6 +234,20 @@
 </head>
 <body>
 
+<div class="authScreen" id="authScreen">
+  <div class="authBox">
+    <h1>Palinsesto</h1>
+    <p class="sub" id="authSub">Accedi per vedere le tue serie</p>
+    <div class="authError" id="authError"></div>
+    <input type="email" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Password">
+    <button id="authSubmit">Accedi</button>
+    <div class="authSwitch">
+      <span id="authSwitchText">Non hai un account?</span> <a id="authSwitchLink">Registrati</a>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <nav class="side">
     <div class="brand">
@@ -217,6 +257,7 @@
     <div class="navlink active" data-view="mine">Le mie serie <span class="count" id="countMine">0</span></div>
     <div class="navlink" data-view="add">Aggiungi</div>
     <div class="navlink" data-view="calendar">Calendario <span class="count" id="countCal">0</span></div>
+    <div class="navlink" id="logoutBtn" style="margin-top:auto;">Esci</div>
   </nav>
 
   <main>
@@ -281,26 +322,17 @@
    ============================================================ */
 
 // 1) Chiave API TMDB (gratuita): https://www.themoviedb.org/settings/api
-const TMDB_API_KEY = "71886096e3ea99da39246fd741b6eba4";
+const TMDB_API_KEY = "INSERISCI_LA_TUA_CHIAVE_TMDB";
 
 // 2) Config del tuo progetto Firebase (Project settings > General > Your apps)
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDVDUI7rbVMdW6zUJdWzsU-8S2gFmYAUoc",
-  authDomain: "tvtime-4de2f.firebaseapp.com",
-  projectId: "tvtime-4de2f",
-  storageBucket: "tvtime-4de2f.firebasestorage.app",
-  messagingSenderId: "126776440052",
-  appId: "1:126776440052:web:7c106b9e20ef78b7aa5aa1"
+  apiKey: "INSERISCI_API_KEY",
+  authDomain: "INSERISCI.firebaseapp.com",
+  projectId: "INSERISCI_PROJECT_ID",
+  storageBucket: "INSERISCI.appspot.com",
+  messagingSenderId: "INSERISCI",
+  appId: "INSERISCI"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 
 /* ============================================================ */
 
@@ -308,30 +340,111 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getFirestore, collection, doc, setDoc, deleteDoc, getDocs, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const configured = TMDB_API_KEY !== "INSERISCI_LA_TUA_CHIAVE_TMDB" && firebaseConfig.apiKey !== "INSERISCI_API_KEY";
 
 let db = null;
 let myShows = {}; // tmdbId -> show data
+let unsubscribeShows = null;
 
-if (configured) {
+const appEl = document.querySelector(".app");
+const authScreen = document.getElementById("authScreen");
+const authError = document.getElementById("authError");
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authSubmit = document.getElementById("authSubmit");
+const authSwitchLink = document.getElementById("authSwitchLink");
+const authSwitchText = document.getElementById("authSwitchText");
+const authSub = document.getElementById("authSub");
+
+let mode = "login"; // or "register"
+
+function setMode(m) {
+  mode = m;
+  authError.textContent = "";
+  if (m === "login") {
+    authSub.textContent = "Accedi per vedere le tue serie";
+    authSubmit.textContent = "Accedi";
+    authSwitchText.textContent = "Non hai un account?";
+    authSwitchLink.textContent = "Registrati";
+  } else {
+    authSub.textContent = "Crea il tuo account";
+    authSubmit.textContent = "Registrati";
+    authSwitchText.textContent = "Hai già un account?";
+    authSwitchLink.textContent = "Accedi";
+  }
+}
+authSwitchLink.addEventListener("click", () => setMode(mode === "login" ? "register" : "login"));
+
+if (!configured) {
+  document.getElementById("setupBanner") && (document.getElementById("setupBanner").innerHTML = "");
+  authError.textContent = "";
+  authSub.innerHTML = `Configura prima TMDB e Firebase in cima al file <code>index.html</code>.`;
+  authSubmit.disabled = true;
+} else {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   const auth = getAuth(app);
-  signInAnonymously(auth).catch(err => console.error("Auth error:", err));
-  onSnapshot(collection(db, "shows"), snap => {
-    myShows = {};
-    snap.forEach(d => myShows[d.id] = d.data());
-    renderMine();
-    renderCalendar();
+
+  authSubmit.addEventListener("click", async () => {
+    const email = authEmail.value.trim();
+    const pass = authPassword.value;
+    if (!email || !pass) { authError.textContent = "Inserisci email e password."; return; }
+    authError.textContent = "";
+    try {
+      if (mode === "login") {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, pass);
+      }
+    } catch (e) {
+      authError.textContent = friendlyAuthError(e.code);
+    }
   });
-} else {
-  document.getElementById("setupBanner").innerHTML = `
-    <div class="banner">
-      Il sito non è ancora collegato a TMDB e Firebase. Apri <code>index.html</code> e inserisci la tua
-      chiave API TMDB e la configurazione del tuo progetto Firebase nella sezione CONFIGURAZIONE in cima allo script.
-    </div>`;
+
+  document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
+
+  onAuthStateChanged(auth, user => {
+    if (unsubscribeShows) { unsubscribeShows(); unsubscribeShows = null; }
+    if (user) {
+      authScreen.style.display = "none";
+      appEl.classList.add("ready");
+      unsubscribeShows = onSnapshot(collection(db, "users", user.uid, "shows"), snap => {
+        myShows = {};
+        snap.forEach(d => myShows[d.id] = d.data());
+        renderMine();
+        renderCalendar();
+      });
+    } else {
+      appEl.classList.remove("ready");
+      authScreen.style.display = "flex";
+    }
+  });
+}
+
+function friendlyAuthError(code) {
+  const map = {
+    "auth/email-already-in-use": "Questa email è già registrata.",
+    "auth/invalid-email": "Email non valida.",
+    "auth/weak-password": "La password deve avere almeno 6 caratteri.",
+    "auth/wrong-password": "Password errata.",
+    "auth/user-not-found": "Nessun account con questa email.",
+    "auth/invalid-credential": "Email o password errata."
+  };
+  return map[code] || "Si è verificato un errore, riprova.";
+}
+
+function currentUid() {
+  return getAuth().currentUser ? getAuth().currentUser.uid : null;
+}
+function showsCol() {
+  return collection(db, "users", currentUid(), "shows");
+}
+function showDoc(id) {
+  return doc(db, "users", currentUid(), "shows", String(id));
 }
 
 /* ---------------- navigazione ---------------- */
@@ -386,7 +499,7 @@ async function doSearch() {
 }
 
 async function addShow(show) {
-  await setDoc(doc(db, "shows", String(show.id)), {
+  await setDoc(showDoc(show.id), {
     id: show.id,
     name: show.name,
     poster: show.poster_path || "",
@@ -475,14 +588,14 @@ document.querySelectorAll(".statusBtn").forEach(btn => {
     if (!activeShow) return;
     activeShow.status = btn.dataset.s;
     document.querySelectorAll(".statusBtn").forEach(b => b.classList.toggle("on", b.dataset.s === activeShow.status));
-    await setDoc(doc(db, "shows", String(activeShow.id)), activeShow);
+    await setDoc(showDoc(activeShow.id), activeShow);
   });
 });
 
 document.getElementById("removeBtn").addEventListener("click", async () => {
   if (!activeShow) return;
   if (confirm(`Rimuovere "${activeShow.name}" dalla lista?`)) {
-    await deleteDoc(doc(db, "shows", String(activeShow.id)));
+    await deleteDoc(showDoc(activeShow.id));
     closeModal();
   }
 });
@@ -517,7 +630,7 @@ async function openModal(show) {
           const i = activeShow.watchedEpisodes.indexOf(key);
           if (i >= 0) activeShow.watchedEpisodes.splice(i, 1); else activeShow.watchedEpisodes.push(key);
           chip.classList.toggle("seen");
-          await setDoc(doc(db, "shows", String(activeShow.id)), activeShow);
+          await setDoc(showDoc(activeShow.id), activeShow);
         });
         list.appendChild(chip);
       });
@@ -525,7 +638,7 @@ async function openModal(show) {
     }
     activeShow.totalEpisodes = totalEpisodes;
     activeShow.nextEpisode = details.next_episode_to_air || null;
-    await setDoc(doc(db, "shows", String(activeShow.id)), activeShow);
+    await setDoc(showDoc(activeShow.id), activeShow);
   } catch (e) {
     seasonsBox.innerHTML = `<div class="banner">Errore nel caricamento delle stagioni: ${e.message}</div>`;
   }
