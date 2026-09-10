@@ -250,8 +250,12 @@
   .barChart .bcol .lb{ font-size:10px; color:var(--muted); margin-top:6px; white-space:nowrap; }
   .barChart.weekday .bcol .b{ background:var(--teal); }
   .genreList .grow, .topList .trow{
-    display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); cursor:pointer;
   }
+  .genreList .grow:hover .gname{ color:var(--amber); }
+  .genreShowList{ padding:2px 0 10px 0; }
+  .gsRow{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); padding:5px 0 5px 8px; border-left:2px solid var(--line); }
+  .gsRow span:last-child{ color:var(--text); font-weight:600; }
   .genreList .grow:last-child, .topList .trow:last-child{ border-bottom:none; }
   .genreList .gname, .topList .tname{ width:130px; flex-shrink:0; font-size:13.5px; font-weight:600; }
   .genreList .gbar, .topList .tbar{ flex:1; height:8px; background:var(--surface-2); border-radius:4px; overflow:hidden; }
@@ -1016,22 +1020,33 @@ function renderStats() {
   const genreStats = {};
   shows.forEach(s => {
     const eps = (s.watchedEpisodes || []).length;
+    if (eps === 0) return;
     const mins = (s.watchedEpisodes || []).reduce((sum, k) => sum + episodeRuntime(s, k), 0);
     (s.genres && s.genres.length ? s.genres : ["Senza genere"]).forEach(g => {
-      if (!genreStats[g]) genreStats[g] = { episodes: 0, minutes: 0 };
+      if (!genreStats[g]) genreStats[g] = { episodes: 0, minutes: 0, shows: [] };
       genreStats[g].episodes += eps;
       genreStats[g].minutes += mins;
+      genreStats[g].shows.push({ name: s.name, episodes: eps });
     });
   });
   const genreEntries = Object.entries(genreStats).filter(([,v]) => v.episodes > 0).sort((a,b) => b[1].episodes - a[1].episodes);
   const maxGenreEp = Math.max(1, ...genreEntries.map(([,v]) => v.episodes));
-  genreBox.innerHTML = genreEntries.length ? genreEntries.map(([name, v]) => `
-    <div class="grow">
+  genreBox.innerHTML = genreEntries.length ? genreEntries.map(([name, v], i) => `
+    <div class="grow" data-genre-toggle="${i}">
       <div class="gname">${name}</div>
       <div class="gbar"><div style="width:${(v.episodes / maxGenreEp) * 100}%"></div></div>
       <div class="gnum">${v.episodes} ep · ${formatHours(v.minutes)}</div>
     </div>
+    <div class="genreShowList" id="genreShowList${i}" style="display:none">
+      ${v.shows.sort((a,b) => b.episodes - a.episodes).map(sh => `<div class="gsRow"><span>${sh.name}</span><span>${sh.episodes} ep</span></div>`).join("")}
+    </div>
   `).join("") : `<div class="empty">Ancora nessun dato: apri le tue serie per recuperare i generi.</div>`;
+  genreBox.querySelectorAll("[data-genre-toggle]").forEach(row => {
+    row.addEventListener("click", () => {
+      const list = document.getElementById("genreShowList" + row.dataset.genreToggle);
+      list.style.display = list.style.display === "none" ? "block" : "none";
+    });
+  });
 
   // ---- giorno della settimana ----
   const weekdayCounts = [0,0,0,0,0,0,0];
