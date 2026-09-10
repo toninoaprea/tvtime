@@ -182,7 +182,13 @@
   .statusBtn[data-s="done"].on{ background:var(--teal); }
   .statusBtn[data-s="dropped"].on{ background:var(--red); color:#1a0d0a; }
   .season{ margin-bottom:16px; }
-  .season h3{ font-size:14px; color:var(--muted); font-weight:700; margin:0 0 8px; text-transform:none; }
+  .season .seasonHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 8px; }
+  .season h3{ font-size:14px; color:var(--muted); font-weight:700; margin:0; text-transform:none; }
+  .selectAllBtn{
+    background:none; border:1px solid var(--line); color:var(--muted); font-size:11px; font-weight:600;
+    padding:4px 10px; border-radius:12px; cursor:pointer; white-space:nowrap;
+  }
+  .selectAllBtn:hover{ border-color:var(--teal); color:var(--teal); }
   .epList{ display:flex; flex-wrap:wrap; gap:6px; }
   .epChip{
     width:34px; height:30px; display:flex; align-items:center; justify-content:center;
@@ -628,8 +634,32 @@ async function openModal(show) {
       const seasonData = await tmdb(`/tv/${show.id}/season/${season.season_number}`);
       const block = document.createElement("div");
       block.className = "season";
-      block.innerHTML = `<h3>${season.name}</h3><div class="epList"></div>`;
+      block.innerHTML = `
+        <div class="seasonHead">
+          <h3>${season.name}</h3>
+          <button class="selectAllBtn" type="button">Seleziona tutti</button>
+        </div>
+        <div class="epList"></div>`;
       const list = block.querySelector(".epList");
+      const seasonKeys = seasonData.episodes.map(ep => `${season.season_number}x${ep.episode_number}`);
+      const selectAllBtn = block.querySelector(".selectAllBtn");
+      function refreshSelectAllLabel() {
+        activeShow.watchedEpisodes = activeShow.watchedEpisodes || [];
+        const allSeen = seasonKeys.every(k => activeShow.watchedEpisodes.includes(k));
+        selectAllBtn.textContent = allSeen ? "Deseleziona tutti" : "Seleziona tutti";
+      }
+      selectAllBtn.addEventListener("click", async () => {
+        activeShow.watchedEpisodes = activeShow.watchedEpisodes || [];
+        const allSeen = seasonKeys.every(k => activeShow.watchedEpisodes.includes(k));
+        if (allSeen) {
+          activeShow.watchedEpisodes = activeShow.watchedEpisodes.filter(k => !seasonKeys.includes(k));
+        } else {
+          seasonKeys.forEach(k => { if (!activeShow.watchedEpisodes.includes(k)) activeShow.watchedEpisodes.push(k); });
+        }
+        list.querySelectorAll(".epChip").forEach(chip => chip.classList.toggle("seen", !allSeen));
+        refreshSelectAllLabel();
+        await setDoc(showDoc(activeShow.id), activeShow);
+      });
       seasonData.episodes.forEach(ep => {
         const key = `${season.season_number}x${ep.episode_number}`;
         const chip = document.createElement("div");
@@ -641,10 +671,12 @@ async function openModal(show) {
           const i = activeShow.watchedEpisodes.indexOf(key);
           if (i >= 0) activeShow.watchedEpisodes.splice(i, 1); else activeShow.watchedEpisodes.push(key);
           chip.classList.toggle("seen");
+          refreshSelectAllLabel();
           await setDoc(showDoc(activeShow.id), activeShow);
         });
         list.appendChild(chip);
       });
+      refreshSelectAllLabel();
       seasonsBox.appendChild(block);
     }
     activeShow.totalEpisodes = totalEpisodes;
